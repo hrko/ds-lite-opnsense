@@ -1,13 +1,4 @@
-*.pyc
 __pycache__/
-.DS_Store
-*.swp
-*.swo
-/tmp/
-*.har
-*.bin
-*.zip
-
-# pkg build artifacts
+*.pyc
 os-dslite/.pkgbuild/
 os-dslite/dist/

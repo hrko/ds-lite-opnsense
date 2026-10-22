@@ -415,6 +415,7 @@ fixedip_provider() {
     local pd detected
 
     case "${ISP_PROFILE}" in
+        xpass) echo "xpass" ; return ;;
         transix) echo "transix" ; return ;;
         enabler) echo "enabler" ; return ;;
         auto)    ;;

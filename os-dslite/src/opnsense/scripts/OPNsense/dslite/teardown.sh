@@ -10,6 +10,12 @@
 # else.
 
 SCRIPT_DIR=$(dirname "$0")
+if [ -z "${DSLITE_CONFIGURE_LOCKED}" ] && [ -x /usr/bin/lockf ]; then
+    DSLITE_CONFIGURE_LOCKED=1
+    export DSLITE_CONFIGURE_LOCKED
+    exec /usr/bin/lockf -k -t 120 /var/run/dslite_configure.lock "$0" "$@"
+fi
+
 . "${SCRIPT_DIR}/lib.sh"
 
 get_config

@@ -83,6 +83,20 @@
             <Default>1</Default>
             <Required>Y</Required>
         </nat_enabled>
+        <xpass_fqdn type="HostnameField">
+            <Required>N</Required>
+        </xpass_fqdn>
+        <xpass_ddns_id type="TextField">
+            <Required>N</Required>
+        </xpass_ddns_id>
+        <xpass_ddns_password type="TextField">
+            <Required>N</Required>
+        </xpass_ddns_password>
+        <xpass_source_ipv6 type="NetworkField">
+            <Required>N</Required>
+            <AddressFamily>IPv6</AddressFamily>
+            <NetMaskAllowed>N</NetMaskAllowed>
+        </xpass_source_ipv6>
         <fixedip_interface_id type="TextField">
             <Required>N</Required>
             <Mask>/^[0-9a-fA-F:]+$/</Mask>

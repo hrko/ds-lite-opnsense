@@ -11,6 +11,12 @@
 # pkg owns it and removes it on uninstall.
 
 SCRIPT_DIR=$(dirname "$0")
+if [ -z "${DSLITE_CONFIGURE_LOCKED}" ] && [ -x /usr/bin/lockf ]; then
+    DSLITE_CONFIGURE_LOCKED=1
+    export DSLITE_CONFIGURE_LOCKED
+    exec /usr/bin/lockf -k -t 120 /var/run/dslite_configure.lock "$0" "$@"
+fi
+
 . "${SCRIPT_DIR}/lib.sh"
 
 get_config
@@ -21,6 +27,18 @@ fi
 
 if [ "$(get_mode)" != "fixedip" ]; then
     exit 0
+fi
+
+if [ "${ISP_PROFILE}" = "xpass" ]; then
+    WAN_IF=$(get_wan_if_device)
+    CE_ADDR=$(python3 "${SCRIPT_DIR}/xpass.py" source "${WAN_IF}") || exit 1
+    OWNED_CE=$(awk '{print $2}' "${STATE_OWNED_IF}" 2>/dev/null)
+    if [ "${CE_ADDR}" != "${OWNED_CE}" ]; then
+        # Registration and tunnel source must change together under the same lock.
+        exec "${SCRIPT_DIR}/configure.sh" start
+    fi
+    # Refresh even unchanged addresses; provider registration can expire.
+    exec python3 "${SCRIPT_DIR}/xpass.py" update "${WAN_IF}" --source "${CE_ADDR}"
 fi
 
 UPDATE_URL=$(config_get "//OPNsense/dslite/fixedip_update_url")

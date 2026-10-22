@@ -3,7 +3,7 @@
 # OPNsense DS-Lite Plugin Installer
 # Works over IPv6-only connections (for pre-tunnel install)
 # Run this directly on the OPNsense box:
-#   curl -6 -skL -o /tmp/install-dslite.sh "https://raw.githubusercontent.com/kawaii-not-kawaii/ds-lite-opnsense/main/os-dslite/install.sh" && sh /tmp/install-dslite.sh
+#   curl -6 -sfL -o /tmp/install-dslite.sh "https://raw.githubusercontent.com/hrko/ds-lite-opnsense/main/os-dslite/install.sh" && sh /tmp/install-dslite.sh
 #
 # Or offline, with no network at all: copy the whole os-dslite directory onto a
 # USB stick, mount it on the box, and run install.sh from there. The script uses
@@ -23,7 +23,7 @@ set -e
 # run on a box whose IPv4 does not exist until the tunnel it installs is up,
 # pulling the tarball would fail exactly when it is needed most.
 BRANCH="${DSLITE_BRANCH:-main}"
-REPO_BASE="https://raw.githubusercontent.com/kawaii-not-kawaii/ds-lite-opnsense/${BRANCH}/os-dslite"
+REPO_BASE="https://raw.githubusercontent.com/hrko/ds-lite-opnsense/${BRANCH}/os-dslite"
 BASE_URL="${REPO_BASE}/src"
 TMP_DIR="/tmp/dslite-install"
 
@@ -54,6 +54,7 @@ opnsense/mvc/app/models/OPNsense/DSLite/Menu/Menu.xml
 opnsense/mvc/app/views/OPNsense/DSLite/general.volt
 opnsense/mvc/app/views/OPNsense/DSLite/diagnostics.volt
 opnsense/scripts/OPNsense/dslite/lib.sh
+opnsense/scripts/OPNsense/dslite/xpass.py
 opnsense/scripts/OPNsense/dslite/configure.sh
 opnsense/scripts/OPNsense/dslite/teardown.sh
 opnsense/scripts/OPNsense/dslite/status.sh
@@ -69,7 +70,11 @@ echo "=== OPNsense DS-Lite Plugin Installer ==="
 if [ -n "${SRC_LOCAL}" ]; then
     echo "source: ${SRC_LOCAL} (offline)"
 else
-    echo "source: branch ${BRANCH} (network)"
+    if ! printf '%s' "${BRANCH}" | grep -Eq '^[0-9a-f]{40}$'; then
+        echo "ERROR: Set DSLITE_BRANCH to a reviewed 40-character commit SHA, or use offline sources."
+        exit 1
+    fi
+    echo "source: commit ${BRANCH} (network)"
 fi
 echo ""
 
@@ -99,7 +104,7 @@ fetch_one() {
         curl -6 -sfL --connect-timeout 10 -o "${_dst}" "${_src}" 2>/dev/null && return 0
         curl -sfL --connect-timeout 10 -o "${_dst}" "${_src}" 2>/dev/null && return 0
     else
-        fetch -q --no-verify-hostname --no-verify-peer -o "${_dst}" "${_src}" && return 0
+        fetch -q -o "${_dst}" "${_src}" && return 0
     fi
     return 1
 }
@@ -306,7 +311,7 @@ install_as_files() {
     "product_name": "dslite",
     "product_tier": "4",
     "product_version": "$(date +%Y.%m.%d.%H%M)",
-    "product_website": "https://github.com/kawaii-not-kawaii/ds-lite-opnsense"
+    "product_website": "https://github.com/hrko/ds-lite-opnsense"
 }
 VERSION
 }
@@ -362,7 +367,7 @@ else
     echo "  the plugin and nothing will reinstall it. Rebuild it as a package"
     echo "  once the box has working IPv4:"
     echo ""
-    echo "    git clone https://github.com/kawaii-not-kawaii/ds-lite-opnsense.git"
+    echo "    git clone https://github.com/hrko/ds-lite-opnsense.git"
     echo "    cd ds-lite-opnsense/os-dslite && ./tools/build-pkg.sh"
     echo "    pkg add -f dist/os-dslite-*.pkg"
 fi

@@ -74,7 +74,7 @@ if [ "${TUNNEL_MODE}" = "fixedip" ]; then
     FIXEDIP_AUTH_USER=$(config_get "//OPNsense/dslite/fixedip_auth_user")
     FIXEDIP_AUTH_PASS=$(config_get "//OPNsense/dslite/fixedip_auth_pass")
 
-    if [ -z "${FIXEDIP_INTERFACE_ID}" ] || [ -z "${FIXEDIP_AFTR}" ] || [ -z "${FIXEDIP_V4}" ]; then
+    if { [ "${ISP_PROFILE}" != "xpass" ] && [ -z "${FIXEDIP_INTERFACE_ID}" ]; } || [ -z "${FIXEDIP_AFTR}" ] || [ -z "${FIXEDIP_V4}" ]; then
         logger -t dslite "ERROR: Fixed IP mode requires Interface ID, AFTR endpoint, and Fixed IPv4 address"
         exit 1
     fi
@@ -83,6 +83,17 @@ if [ "${TUNNEL_MODE}" = "fixedip" ]; then
     B4_ADDRESS="${FIXEDIP_V4}"
     AFTR_V4_ADDRESS=""
 
+    if [ "${ISP_PROFILE}" = "xpass" ]; then
+        if tunnel_exists && ! tunnel_is_ours "${TUNNEL_IF}"; then
+            logger -t dslite "ERROR: refusing Xpass registration for a tunnel owned by another service"
+            exit 1
+        fi
+        # Use an existing WAN address; do not fabricate an IID or modify WAN aliases.
+        LOCAL_V6=$(python3 "${SCRIPT_DIR}/xpass.py" source "${WAN_IF}") || exit 1
+        python3 "${SCRIPT_DIR}/xpass.py" update "${WAN_IF}" --source "${LOCAL_V6}" || exit 1
+        # Core Source NAT owns translations, including endpoint-independent UDP.
+        NAT_ENABLED=0
+    else
     # Combine the provider's Interface ID with our prefix to form the routable
     # tunnel source. How the ID maps in is provider-specific; see
     # fixedip_iid_placement() in lib.sh for why this cannot be inferred.
@@ -127,6 +138,8 @@ if [ "${TUNNEL_MODE}" = "fixedip" ]; then
     # Credentials never go over an unverified connection.
     fixedip_register_if_changed "${FIXEDIP_UPDATE_URL}" "${FIXEDIP_AUTH_USER}" \
         "${FIXEDIP_AUTH_PASS}" "${FIXEDIP_ALLOW_INSECURE}" "${LOCAL_V6}"
+
+    fi
 
     logger -t dslite "Fixed IP mode: local=${LOCAL_V6} aftr=${AFTR_ADDRESS} ipv4=${B4_ADDRESS}"
 elif [ "${TUNNEL_MODE}" = "mape" ]; then
@@ -406,6 +419,12 @@ else
 fi
 
 # Configure NAT and firewall rules via OPNsense's registered anchors
+if [ "${TUNNEL_MODE}" = "fixedip" ] && [ "${ISP_PROFILE}" = "xpass" ]; then
+    # Remove stale plugin rules when switching from another mode. Core rules
+    # remain untouched; core must provide Source NAT and MSS for this interface.
+    pfctl -a "dslite/nat" -F nat || exit 1
+    pfctl -a "dslite/fw" -F rules || exit 1
+fi
 if [ "${NAT_ENABLED}" = "1" ]; then
     NAT_FILE="/tmp/dslite_nat.conf"
     if [ "${TUNNEL_MODE}" = "mape" ]; then
